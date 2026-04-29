@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isEmailVerified() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'sebolelohlabi23@gmail.com'
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    // --- Validation Helpers ---
+
+    function isValidBeneficiary(b) {
+      return b.keys().hasAll(['name', 'idNumber', 'phone', 'relationship', 'percentage']) &&
+             b.name is string && b.name.size() > 0 && b.name.size() <= 100 &&
+             b.idNumber is string && b.idNumber.size() > 0 && b.idNumber.size() <= 30 &&
+             b.phone is string && b.phone.size() >= 10 && b.phone.size() <= 20 &&
+             b.relationship is string && b.relationship.size() > 0 && b.relationship.size() <= 50 &&
+             b.percentage is string && b.percentage.size() > 0 && b.percentage.size() <= 5;
+    }
+
+    function isValidMembershipApplication(data) {
+      let requiredFields = [
+        'firstNames', 'surname', 'idNumber', 'race', 'ethnicGroup', 'memberType', 
+        'dateOfBirth', 'gender', 'mobilePhone', 'email', 'homeLanguage', 
+        'preferredLanguage', 'homeAddress', 'homeAddressCode', 'nationality', 
+        'idPassport', 'province', 'municipality', 'employmentStatus', 'bankName', 
+        'accountHolder', 'accountNumber', 'nokName', 'nokId', 'nokCell1', 
+        'submittedAt', 'ownerId'
+      ];
+      return data.keys().hasAll(requiredFields) &&
+             data.firstNames is string && data.firstNames.size() > 0 && data.firstNames.size() <= 200 &&
+             data.surname is string && data.surname.size() > 0 && data.surname.size() <= 200 &&
+             data.idNumber is string && data.idNumber.size() >= 6 && data.idNumber.size() <= 30 &&
+             data.race is string && data.race.size() > 0 &&
+             data.ethnicGroup is string && data.ethnicGroup.size() > 0 &&
+             data.memberType in ['Member', 'Staff', 'User'] &&
+             data.email is string && data.email.size() > 0 && data.email.size() <= 255 &&
+             data.mobilePhone is string && data.mobilePhone.size() >= 10 && data.mobilePhone.size() <= 20 &&
+             data.homeAddress is string && data.homeAddress.size() > 0 && data.homeAddress.size() <= 1000 &&
+             data.employmentStatus in ['Employed', 'Self-Employed', 'Pensioner', 'Other'] &&
+             data.bankName is string && data.bankName.size() > 0 &&
+             data.accountNumber is string && data.accountNumber.size() > 0 && data.accountNumber.size() <= 50 &&
+             data.nokCell1 is string && data.nokCell1.size() >= 10 && data.nokCell1.size() <= 20 &&
+             data.submittedAt == request.time &&
+             data.ownerId == request.auth.uid &&
+             (data.beneficiaries.size() <= 4);
+    }
+
+    // --- Collection Rules ---
+
+    match /applications/{applicationId} {
+      allow create: if isEmailVerified() && isValidId(applicationId) && isValidMembershipApplication(incoming());
+      allow get: if isEmailVerified() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow list: if isAdmin();
+      // No updates or deletes allowed from client for audit integrity
+    }
+
+    match /admins/{adminId} {
+      allow read: if isEmailVerified() && (adminId == request.auth.uid || isAdmin());
+      // Admin creation is done server-side or via bootstrapped email
+    }
+  }
+}

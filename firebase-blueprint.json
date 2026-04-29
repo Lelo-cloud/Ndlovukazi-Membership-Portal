@@ -1,0 +1,31 @@
+{
+  "entities": {
+    "Application": {
+      "title": "Membership Application",
+      "description": "A membership application form for the Ndlovukazi YakwaZulu Women Financial Services Cooperative.",
+      "type": "object",
+      "properties": {
+        "firstNames": { "type": "string" },
+        "surname": { "type": "string" },
+        "idNumber": { "type": "string" },
+        "dateOfBirth": { "type": "string" },
+        "gender": { "type": "string" },
+        "email": { "type": "string" },
+        "mobilePhone": { "type": "string" },
+        "homeAddress": { "type": "string" },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "ownerEmail": { "type": "string" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["firstNames", "surname", "idNumber", "ownerId"]
+    }
+  },
+  "firestore": {
+    "applications/{applicationId}": {
+      "schema": "Application",
+      "description": "Collection of membership applications."
+    }
+  }
+}
