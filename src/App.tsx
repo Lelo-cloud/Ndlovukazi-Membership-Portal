@@ -3,6 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { motion, AnimatePresence } from 'motion/react';
+import SignatureCanvas from 'react-signature-canvas';
 import { 
   User, 
   Briefcase, 
@@ -22,7 +23,9 @@ import {
   Loader2,
   LayoutDashboard,
   ArrowLeft,
-  FileText
+  FileText,
+  RotateCcw,
+  Pencil
 } from 'lucide-react';
 
 // Firebase Imports
@@ -159,6 +162,8 @@ const schema = z.object({
   nokRelationship: z.string().min(1, "Required"),
   nokCell1: z.string().min(10, "Required"),
   nokCell2: z.string().optional(),
+  
+  signature: z.string().min(1, "Please provide your signature"),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -183,6 +188,7 @@ export default function App() {
   const [view, setView] = useState<'form' | 'admin'>('form');
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
+  const sigCanvas = React.useRef<SignatureCanvas>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
@@ -241,14 +247,26 @@ export default function App() {
     setIsSubmitted(false);
   };
 
-  const { register, control, handleSubmit, formState: { errors }, trigger } = useForm<FormData>({
+  const { register, control, handleSubmit, formState: { errors }, trigger, setValue } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       memberType: 'Member',
       employmentStatus: 'Employed',
-      beneficiaries: [{ name: '', idNumber: '', phone: '', relationship: '', percentage: '' }]
+      beneficiaries: [{ name: '', idNumber: '', phone: '', relationship: '', percentage: '' }],
+      signature: ''
     }
   });
+
+  const clearSignature = () => {
+    sigCanvas.current?.clear();
+    setValue('signature', '');
+  };
+
+  const saveSignature = () => {
+    if (sigCanvas.current && !sigCanvas.current.isEmpty()) {
+      setValue('signature', sigCanvas.current.getTrimmedCanvas().toDataURL('image/png'));
+    }
+  };
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -925,6 +943,36 @@ export default function App() {
                           <p>• I agree to a minimum compulsory saving fee of R100 every month.</p>
                           <p>• I consent to the responsible processing of my personal information.</p>
                         </div>
+                        
+                        <div className="mt-8 border-t border-slate-800 pt-6">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-bold text-slate-400 flex items-center gap-2">
+                              <Pencil size={14} />
+                              Digital Signature
+                            </label>
+                            <button 
+                              type="button" 
+                              onClick={clearSignature}
+                              className="text-[10px] uppercase tracking-widest font-bold text-red-500 hover:text-red-400 flex items-center gap-1 transition-colors"
+                            >
+                              <RotateCcw size={10} />
+                              Clear
+                            </button>
+                          </div>
+                          <div className="bg-white rounded-xl overflow-hidden h-40 border-2 border-slate-800 focus-within:border-brand-gold transition-all">
+                            <SignatureCanvas 
+                              ref={sigCanvas}
+                              penColor="#1e3a8a"
+                              canvasProps={{
+                                className: "signature-canvas w-full h-full cursor-crosshair",
+                              }}
+                              onEnd={saveSignature}
+                            />
+                          </div>
+                          <input type="hidden" {...register("signature")} />
+                          {errors.signature && <p className="text-red-400 text-xs mt-2 font-medium">{errors.signature.message}</p>}
+                        </div>
+
                         <div className="mt-8 flex items-center gap-3">
                           <input type="checkbox" id="terms" className="w-5 h-5 rounded border-slate-700 bg-slate-800 text-brand-gold" required />
                           <label htmlFor="terms" className="text-sm font-medium cursor-pointer">I understand and agree to the terms as stated above.</label>

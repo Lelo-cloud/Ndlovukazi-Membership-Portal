@@ -15,6 +15,7 @@
         "homeAddress": { "type": "string" },
         "bankName": { "type": "string" },
         "accountNumber": { "type": "string" },
+        "signature": { "type": "string", "description": "Base64 encoded signature image" },
         "ownerId": { "type": "string" },
         "ownerEmail": { "type": "string" },
         "submittedAt": { "type": "string", "format": "date-time" }
